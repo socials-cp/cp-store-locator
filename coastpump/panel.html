@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Store locator with Panel</title>
+
+    <script src="https://maps.google.com/maps/api/js?sensor=false&libraries=geometry&v=3.22&key=AIzaSyD0IKjRiS4iXpQzd0BpFEVzVDv7_4jVckI"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.18.0/dist/axios.min.js"></script>
+    <script
+      type="text/javascript"
+      src="https://pym.nprapps.org/pym.v1.min.js"
+    ></script>
+
+    <script src="coastpump.js"></script>
+    <script src="maplace.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Initialize Pym.js
+        var pymChild = new pym.Child();
+      });
+    </script>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      body {
+        font-family: sans-serif;
+      }
+      #gmap,
+      #controls {
+        height: 100%;
+      }
+      #controls {
+        width: 300px;
+        float: left;
+        margin-right: 10px;
+        overflow: auto;
+      }
+      #controls .feature-filter label {
+        width: 130px;
+      }
+      p.attribution,
+      p.attribution a {
+        color: #666;
+      }
+
+      .wrap_controls {
+        padding-bottom: 150px;
+      }
+
+      .ullist li:hover {
+        background-color: #dddddd;
+        border-radius: 10px;
+      }
+
+      @media (max-width: 767px) {
+        #controls {
+          float: none;
+          width: 100%;
+          height: 150px;
+        }
+        .ullist {
+          display: flex;
+        }
+        .ullist a {
+          border-bottom: 0;
+        }
+        .ullist li {
+          flex-basis: 200px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-size: 12px;
+          height: 120px;
+          flex-shrink: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Coast Pump Locations</h1>
+    <div id="controls"></div>
+    <div id="gmap-menu"></div>
+    <div id="gmap"></div>
+  </body>
+  <script>
+    var html_checks = {
+      //required: called by Maplace.js to activate the current voice on menu
+      activateCurrent: function (index) {
+        this.html_element
+          .find("input[value='" + index + "']")
+          .attr("checked", true);
+      },
+      //required: called by Maplace.js to get the html of the menu
+      getHtml: function () {
+        var self = this,
+          html = "";
+
+        //if more than one location
+        if (this.ln > 1) {
+          html +=
+            '<div class="checkbox controls ' + this.o.controls_cssclass + '">';
+
+          //check "view all" link
+          //use ShowOnMenu(index) to know if a location has to appear on menu
+          if (this.ShowOnMenu(this.view_all_key)) {
+            html +=
+              '<label><input type="radio" name="gmap" value="' +
+              this.view_all_key +
+              '"/>' +
+              this.o.view_all_text +
+              "</label>";
+          }
+
+          //iterate the locations
+          for (var a = 0; a < this.ln; a++) {
+            if (this.ShowOnMenu(a))
+              html +=
+                '<label><input type="radio" name="gmap" value="' +
+                (a + 1) +
+                '"/>' +
+                (this.o.locations[a].title || "#" + (a + 1)) +
+                "</label>";
+          }
+          html += "</div>";
+        }
+
+        this.html_element = $('<div class="wrap_controls"></div>').append(html);
+
+        //event on change
+        //use ViewOnMap(index) to trigger the marker on map
+        this.html_element.find("input[type=radio]").bind("change", function () {
+          self.ViewOnMap(this.value);
+        });
+
+        return this.html_element;
+      },
+    };
+    $(function () {
+      var maplace = new Maplace();
+      const zipObject = (props, values) => {
+        return props.reduce((prev, prop, i) => {
+          return Object.assign(prev, { [prop]: values[i] });
+        }, {});
+      };
+      var locations = axios
+        .get(
+          "https://sheets.googleapis.com/v4/spreadsheets/1nkeHyPwmRaZ2b1dumhoC0p8YvnJaQs4mFdgJvEBK_O8/values/a1:j99?key=AIzaSyD0IKjRiS4iXpQzd0BpFEVzVDv7_4jVckI"
+        )
+        .then(({ data: { values } }) => {
+          var data = values.map((e) => {
+            return {
+              [values[0][0]]: e[0],
+              [values[0][1]]: e[1],
+              [values[0][2]]: e[2],
+              [values[0][3]]: e[3],
+              [values[0][4]]: e[4],
+              [values[0][5]]: e[5],
+              [values[0][6]]: e[6],
+              [values[0][7]]: e[7],
+              [values[0][8]]: e[8],
+              [values[0][9]]: e[9],
+            };
+          });
+          data.shift();
+          maplace.AddControl("checks", html_checks);
+
+          maplace.Load({
+            locations: data,
+            map_div: "#gmap",
+            controls_type: "list",
+            controls_on_map: false,
+            view_all_text: "View all",
+          });
+        });
+
+      //add the new menu with the method AddControl(name, function)
+    });
+  </script>
+</html>
